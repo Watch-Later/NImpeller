@@ -19,12 +19,17 @@ class Generator
             "ImpellerContextCreateMetalNew",
             "ImpellerContextCreateVulkanNew"
         };
+        var fastFunctions = new HashSet<string>()
+        {
+            "ImpellerPaintNew",
+            "ImpellerPaintSetColor"
+        };
 
         var manualMarshal = new Dictionary<string, string>()
         {
             { "ImpellerMapping", "IImpellerUnmanagedMemory" }
         };
-
+        
         var recordStructs = new HashSet<string>()
         {
             "ImpellerISize", "ImpellerRect", "ImpellerColor"
@@ -151,6 +156,12 @@ class Generator
                             "[System.Runtime.InteropServices.UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvStdcall)])]")
                         .Line(
                             "[System.Runtime.InteropServices.LibraryImport(\"impeller\", StringMarshalling = System.Runtime.InteropServices.StringMarshalling.Utf8)]");
+
+                    // TODO: Experimental
+                    if (imp.Name.StartsWith("ImpellerPathBuilder") || imp.Name.EndsWith("Retain") ||
+                        imp.Name.EndsWith("Release"))
+                        gen.Line("[System.Runtime.InteropServices.SuppressGCTransition]");
+                    
                     if ((imp.Name.EndsWith("Release") || imp.Name.EndsWith("Retain")) && imp.Parameters.Count == 1 &&
                         imp.Parameters[0].Type is NativeHandle)
                     {
