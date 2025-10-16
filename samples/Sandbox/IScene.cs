@@ -4,7 +4,7 @@ namespace Sandbox;
 
 public class SceneParameters
 {
-    public int Complexity { get; set; } = 10;
+    public int Complexity { get; set; } = 12;
     public int Width { get; set; }
     public int Height { get; set; }
 }

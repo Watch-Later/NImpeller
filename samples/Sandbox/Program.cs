@@ -8,9 +8,19 @@ using NImpeller;
 using Sandbox;
 using Sandbox.Scenes;
 using Silk.NET.Core.Contexts;
+using Silk.NET.Core.Native;
 
 static unsafe  class Program
 {
+    enum GraphicsApi
+    {
+        OpenGL,
+        Vulkan,
+        DontTellMeThatThisIsUnreachable
+    }
+    
+    
+    
     static void Main(string[] args)
     {
         var impellerPath = Path.Combine(Directory.GetCurrentDirectory(), args[0]);
@@ -34,19 +44,39 @@ static unsafe  class Program
             return;
         }
 
-        sdl.GLSetAttribute(GLattr.ContextMajorVersion, 3);
-        sdl.GLSetAttribute(GLattr.ContextMinorVersion, 0);
-        sdl.GLSetAttribute(GLattr.ContextProfileMask, (int)GLprofile.ES);
-        
-        
+        var apiType = GraphicsApi.OpenGL;
+        if(args.Length > 1)
+        {
+            if (args[1].Equals("vulkan", StringComparison.OrdinalIgnoreCase))
+                apiType = GraphicsApi.Vulkan;
+            else if (args[1].Equals("opengl", StringComparison.OrdinalIgnoreCase))
+                apiType = GraphicsApi.OpenGL;
+        }
 
+        if (new Random().Next(10) > 100)
+            apiType = GraphicsApi.DontTellMeThatThisIsUnreachable;
+
+        if (apiType == GraphicsApi.OpenGL)
+        {
+            sdl.GLSetAttribute(GLattr.ContextMajorVersion, 3);
+            sdl.GLSetAttribute(GLattr.ContextMinorVersion, 0);
+            sdl.GLSetAttribute(GLattr.ContextProfileMask, (int)GLprofile.ES);
+        }
+
+        var windowFlags = WindowFlags.Shown;
+        if(apiType == GraphicsApi.OpenGL)
+            windowFlags |= WindowFlags.Opengl;
+        else if (apiType == GraphicsApi.Vulkan) 
+            windowFlags |= WindowFlags.Vulkan;
+        
+        
         var window = sdl.CreateWindow(
             "NImpeller on SDL",
             Sdl.WindowposCentered,
             Sdl.WindowposCentered,
             1600,
             900,
-            (uint)(WindowFlags.Opengl | WindowFlags.Shown)
+            (uint)windowFlags
         );
 
         
@@ -57,30 +87,55 @@ static unsafe  class Program
             sdl.Quit();
             return;
         }
-        
 
-        var context = sdl.GLCreateContext(window);
-        if (context == null)
+
+        ImpellerContext impellerContext;
+        int fbo = 0;
+        ImpellerVulkanSwapchain vulkanSwapchain = null!;
+
+        if (apiType == GraphicsApi.OpenGL)
         {
-            Console.WriteLine($"OpenGL context creation failed: {sdl.GetErrorS()}");
-            sdl.DestroyWindow(window);
-            sdl.Quit();
-            return;
+
+            var context = sdl.GLCreateContext(window);
+            if (context == null)
+            {
+                Console.WriteLine($"OpenGL context creation failed: {sdl.GetErrorS()}");
+                sdl.DestroyWindow(window);
+                sdl.Quit();
+                return;
+            }
+
+            var gl = GL.GetApi(new LamdaNativeContext(s => (IntPtr)sdl.GLGetProcAddress(s)));
+
+            sdl.GLMakeCurrent(window, context);
+            sdl.GLSetSwapInterval(0); // Enable vsync
+            impellerContext = ImpellerContext.CreateOpenGLESNew(name =>
+            {
+                Console.WriteLine(name);
+                return (IntPtr)sdl.GLGetProcAddress(name);
+            })!;
+            gl.GetInteger(GLEnum.FramebufferBinding, &fbo);
+        }
+        else if (apiType == GraphicsApi.Vulkan)
+        {
+            uint extensionCount;
+            byte* extensions;
+            sdl.VulkanGetInstanceExtensions(window, &extensionCount, &extensions);
+            var vkGetProcAddress = (delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr>)sdl.VulkanGetVkGetInstanceProcAddr();
+            impellerContext = ImpellerContext.CreateVulkanNew((instance, proc) => vkGetProcAddress(instance, proc), false)!;
+
+            var info = impellerContext.GetVulkanInfo()!.Value;
+
+            VkNonDispatchableHandle surfaceHandle;
+            sdl.VulkanCreateSurface(window, new(info.Vk_instance), &surfaceHandle);
+            vulkanSwapchain = impellerContext.VulkanSwapchainCreateNew(new IntPtr((long)surfaceHandle.Handle))!;
+        }
+        else
+        {
+            throw null!;
         }
 
-        var gl = GL.GetApi(new LamdaNativeContext(s => (IntPtr)sdl.GLGetProcAddress(s)));
-
-        sdl.GLMakeCurrent(window, context);
-        sdl.GLSetSwapInterval(0); // Enable vsync
-        var impellerContext = ImpellerContext.CreateOpenGLESNew(name =>
-        {
-            Console.WriteLine(name);
-            return (IntPtr)sdl.GLGetProcAddress(name);
-        })!;
-
-        int fbo;
-        gl.GetInteger(GLEnum.FramebufferBinding, &fbo);
-        var renderer = Marshal.PtrToStringUTF8((IntPtr)gl.GetString(GLEnum.Renderer));
+        
         ImpellerSurface? surface = null;
         ImpellerISize surfaceSize = default;
         
@@ -106,18 +161,31 @@ static unsafe  class Program
             sdl.GetWindowSize(window, &width, &height);
 
             var windowSize = new ImpellerISize(width, height);
-            if(surface == null || windowSize != surfaceSize)
+            if (apiType == GraphicsApi.OpenGL)
             {
-                surface?.Dispose();
-                surface = impellerContext.SurfaceCreateWrappedFBONew((ulong)fbo,
-                    ImpellerPixelFormat.kImpellerPixelFormatRGBA8888, windowSize)!;
-                surfaceSize = windowSize;
+
+                if (surface == null || windowSize != surfaceSize)
+                {
+                    surface?.Dispose();
+                    surface = impellerContext.SurfaceCreateWrappedFBONew((ulong)fbo,
+                        ImpellerPixelFormat.kImpellerPixelFormatRGBA8888, windowSize)!;
+                    surfaceSize = windowSize;
+                }
+
             }
-            
-            
-            gl.Viewport(0, 0, (uint)width, (uint)height);
+            else if (apiType == GraphicsApi.Vulkan)
+            {
+                // do nothing
+            }
+            else
+            {
+                throw null;
+            }
+
+            //gl.Viewport(0, 0, (uint)width, (uint)height);
 
 
+            ImpellerDisplayList displayList;
             using (var drawListBuilder = ImpellerDisplayListBuilder.New(new ImpellerRect(100, 100, width, height))!)
             {
                 if (st.Elapsed.TotalSeconds > 1)
@@ -138,19 +206,33 @@ static unsafe  class Program
                 
                 
                 
-                using var displayList = drawListBuilder.CreateDisplayListNew()!;
-                surface.DrawDisplayList(displayList);
+                displayList = drawListBuilder.CreateDisplayListNew()!;
             }
 
-            
-            
-            sdl.GLSwapWindow(window);
+            using (displayList)
+            {
+                if (apiType == GraphicsApi.OpenGL)
+                {
+                    surface.DrawDisplayList(displayList);
+                    sdl.GLSwapWindow(window);
+                }
+                else if (apiType == GraphicsApi.Vulkan)
+                {
+                    using (surface = vulkanSwapchain.AcquireNextSurfaceNew()!)
+                    {
+                        surface.DrawDisplayList(displayList);
+                        surface.Present();
+                    }
+                }
+            }
 
         }
 
+        Process.GetCurrentProcess().Kill();
+        /* who cares
         sdl.GLDeleteContext(context);
         sdl.DestroyWindow(window);
-        sdl.Quit();
+        sdl.Quit();*/
     }
 
     static (float r, float g, float b) HsvToRgb(float h, float s, float v)
