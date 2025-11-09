@@ -11,6 +11,7 @@ using Nuke.Common.Execution;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tooling;
+using Nuke.Common.Tools.DotNet;
 using Nuke.Common.Tools.Git;
 using Nuke.Common.Utilities.Collections;
 using Serilog;
@@ -32,7 +33,7 @@ class Build : NukeBuild
     [Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]
     readonly Configuration Configuration = IsLocalBuild ? Configuration.Debug : Configuration.Release;
 
-    [Parameter("Flutter engine commit SHA for Impeller SDK download")]
+    [Parameter("Flutter commit SHA for Impeller SDK download")]
     readonly string ImpellerSha;
 
     [Parameter("Platform to download (linux-x64, darwin-arm64, etc.)")]
@@ -81,6 +82,51 @@ class Build : NukeBuild
         .DependsOn(Restore)
         .Executes(() =>
         {
+        });
+
+    Target GenerateBindings => _ => _
+        .Description("Generate Impeller bindings from impeller.h using InteropGen")
+        .Executes(() =>
+        {
+            var impellerHeaderPath = OutputDirectory / "linux-x64" / "include" / "impeller.h";
+
+            if (!File.Exists(impellerHeaderPath))
+            {
+                throw new Exception(
+                    $"Impeller header file not found at: {impellerHeaderPath}\n" +
+                    "Please download the linux-x64 Impeller SDK first by running the Nuke build task:\n" +
+                    "  DownloadLatestImpeller --platform linux-x64\n" +
+                    "or\n" +
+                    "  DownloadImpeller --impeller-sha <commit-sha> --platform linux-x64");
+            }
+
+            Log.Information("Found impeller.h at: {Path}", impellerHeaderPath);
+            Log.Information("Building InteropGen...");
+
+            var interopGenProject = RootDirectory / "src" / "InteropGen" / "InteropGen.csproj";
+            DotNetBuild(s => s
+                .SetProjectFile(interopGenProject)
+                .SetConfiguration(Configuration));
+
+            Log.Information("Running InteropGen to generate bindings...");
+
+            DotNetRun(s => s
+                .SetProjectFile(interopGenProject)
+                .SetConfiguration(Configuration)
+                .SetNoBuild(true)
+                .SetApplicationArguments(impellerHeaderPath));
+
+            var generatedFile = RootDirectory / "src" / "NImpeller" / "Generated" / "Bindings.g.cs";
+            if (File.Exists(generatedFile))
+            {
+                var fileInfo = new FileInfo(generatedFile);
+                var fileSize = fileInfo.Length / 1024.0;
+                Log.Information("Successfully generated bindings at: {Path} ({Size:F2} KB)", generatedFile, fileSize);
+            }
+            else
+            {
+                throw new Exception("Failed to generate bindings - output file not found");
+            }
         });
 
     Target ListImpellerCommits => _ => _
