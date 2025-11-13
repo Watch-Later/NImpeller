@@ -53,11 +53,9 @@ public unsafe partial class ImpellerContext
         return res != null! ? new ImpellerContext(res) : null;
     }
 
-    public static ImpellerContext? CreateMetalNew(Func<string, IntPtr> getProcAddress)
+    public static ImpellerContext? CreateMetalNew()
     {
-        var handle = GCHandle.Alloc(getProcAddress);
         var res = UnsafeNativeMethods.ImpellerContextCreateMetalNew(UnsafeNativeMethods.ImpellerVersion);
-        handle.Free();
         return res != null! ? new ImpellerContext(res) : null;
     }
 

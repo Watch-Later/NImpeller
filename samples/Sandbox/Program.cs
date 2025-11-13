@@ -362,7 +362,7 @@ static unsafe  class Program
 
         public ImpellerRenderer(MTLDevice device)
         {
-            _context = ImpellerContext.CreateMetalNew(_ => IntPtr.Zero)!;
+            _context = ImpellerContext.CreateMetalNew()!;
             _stopwatch = Stopwatch.StartNew();
             _frames = 0;
             _fps = 0;
