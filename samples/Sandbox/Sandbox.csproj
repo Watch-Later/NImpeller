@@ -9,17 +9,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Silk.NET.OpenGLES" Version="2.22.0" />
-      <PackageReference Include="Silk.NET.SDL" Version="2.22.0" />
-      <PackageReference Include="Silk.NET.Vulkan" Version="2.22.0" />
-      <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.22.0" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <PackageReference Include="SharpMetal" Version="1.1.0" />
-    </ItemGroup>
-
-    <ItemGroup>
       <PackageReference Include="CommandLineParser" Version="2.9.1" />
     </ItemGroup>
 
