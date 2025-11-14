@@ -14,11 +14,12 @@ public class MetalApplication : IApplication
     public event EventHandler<StatusUpdatedEventArgs>? StatusUpdated;
 
     private NSWindow? _window;
+    private NSWindowDelegate? _windowDelegate;
     private IScene _scene = null!;
     private readonly ILogger<MetalApplication> _logger;
 
     private int _width;
-    
+
     private int _height;
 
     private string _title;
@@ -85,6 +86,17 @@ public class MetalApplication : IApplication
             ImpellerMetalRenderer.CurrentScene = _scene;
             ImpellerMetalRenderer.CurrentWindow = _window;
             ImpellerMetalRenderer.CurrentApplication = this;
+
+            // Set up window delegate to handle window close event
+            _windowDelegate = new NSWindowDelegate();
+            _windowDelegate.WindowShouldClose = sender =>
+            {
+                // Terminate the application when the window closes
+                var app = new NSApplication(notification.Object);
+                app.Terminate();
+                return true;
+            };
+            _window.SetDelegate(_windowDelegate.NativePtr);
 
             _window.SetContentView(mtkView);
             _window.Title = _title;
