@@ -7,6 +7,7 @@ namespace Sandbox.Scenes;
 public class CirclingSquares : IScene
 {
     public string Name => "Circling Squares";
+    public string CommandLineName => "circlingsquares";
     public string Description => "Animated red squares rotating in a circle pattern, demonstrating matrix transformations and animation";
 
     Stopwatch st = Stopwatch.StartNew();

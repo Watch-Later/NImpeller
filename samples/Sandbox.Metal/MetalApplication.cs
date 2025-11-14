@@ -95,9 +95,8 @@ public class MetalApplication : IApplication
             _windowDelegate = new NSWindowDelegate();
             _windowDelegate.WindowShouldClose = sender =>
             {
-                // Terminate the application when the window closes
-                var app = new NSApplication(notification.Object);
-                app.Terminate();
+                // Exit the console process when the window closes
+                Environment.Exit(0);
                 return true;
             };
             _window.SetDelegate(_windowDelegate.NativePtr);

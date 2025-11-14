@@ -34,8 +34,8 @@ static class Program
         [Option('a', "api", Required = false, Default = GraphicsApi.OpenGL, HelpText = "Graphics API to use (OpenGL, Vulkan, Metal)")]
         public GraphicsApi Api { get; set; }
 
-        [Option('s', "scene", Required = false, Default = "MMark", HelpText = "Scene to render. Available scenes: MMark, Paragraph, CirclingSquares")]
-        public string Scene { get; set; } = "MMark";
+        [Option('s', "scene", Required = false, Default = "mmark", HelpText = "Scene to render.")]
+        public string Scene { get; set; } = "mmark";
 
         [Option('w', "width", Required = false, Default = 800, HelpText = "Window width")]
         public int Width { get; set; }
@@ -137,7 +137,8 @@ static class Program
     static IScene? GetSceneByName(string sceneName)
     {
         return AvailableScenes.FirstOrDefault(s =>
-            s.Name.Equals(sceneName, StringComparison.OrdinalIgnoreCase));
+            s.Name.Equals(sceneName, StringComparison.OrdinalIgnoreCase) ||
+            s.CommandLineName.Equals(sceneName, StringComparison.OrdinalIgnoreCase));
     }
 
     static void RunApplication(Options options)
