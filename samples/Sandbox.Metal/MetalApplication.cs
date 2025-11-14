@@ -9,8 +9,10 @@ using SharpMetal.ObjectiveCCore;
 namespace Sandbox;
 
 [SupportedOSPlatform("macos")]
-public class MetalApplication
+public class MetalApplication : IApplicationStatus
 {
+    public event EventHandler<StatusUpdatedEventArgs>? StatusUpdated;
+
     private NSWindow? _window;
     private IScene _scene = null!;
     private readonly ILogger<MetalApplication> _logger;
@@ -18,6 +20,16 @@ public class MetalApplication
     public MetalApplication(ILogger<MetalApplication>? logger = null)
     {
         _logger = logger ?? NullLogger<MetalApplication>.Instance;
+    }
+
+    public ApplicationStatus GetStatus()
+    {
+        return ImpellerMetalRenderer.GetStatus();
+    }
+
+    internal void OnStatusUpdated(ApplicationStatus status)
+    {
+        StatusUpdated?.Invoke(this, new StatusUpdatedEventArgs(status));
     }
 
     public void SetScene(IScene scene)
@@ -64,6 +76,7 @@ public class MetalApplication
 
             ImpellerMetalRenderer.CurrentScene = _scene;
             ImpellerMetalRenderer.CurrentWindow = _window;
+            ImpellerMetalRenderer.CurrentApplication = this;
 
             _window.SetContentView(mtkView);
             _window.Title = title;

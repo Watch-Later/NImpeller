@@ -11,13 +11,15 @@ using Silk.NET.Core.Native;
 
 namespace Sandbox;
 
-public unsafe class SdlApplication
+public unsafe class SdlApplication : IApplicationStatus
 {
     public enum GraphicsApi
     {
         OpenGL,
         Vulkan
     }
+
+    public event EventHandler<StatusUpdatedEventArgs>? StatusUpdated;
 
     private readonly Sdl _sdl;
     private Window* _window;
@@ -29,7 +31,9 @@ public unsafe class SdlApplication
     private readonly GraphicsApi _apiType;
     private IScene _scene = null!;
     private readonly Stopwatch _stopwatch;
+    private readonly Stopwatch _totalRunTime;
     private int _frames;
+    private long _totalFrames;
     private int _fps;
     private readonly ILogger<SdlApplication> _logger;
 
@@ -38,7 +42,18 @@ public unsafe class SdlApplication
         _sdl = Sdl.GetApi();
         _apiType = apiType;
         _stopwatch = Stopwatch.StartNew();
+        _totalRunTime = Stopwatch.StartNew();
         _logger = logger ?? NullLogger<SdlApplication>.Instance;
+    }
+
+    public ApplicationStatus GetStatus()
+    {
+        return new ApplicationStatus
+        {
+            CurrentFps = _fps,
+            TotalFrames = _totalFrames,
+            RunTime = _totalRunTime.Elapsed
+        };
     }
 
     public bool Initialize(int width = 1600, int height = 900, string title = "NImpeller on SDL")
@@ -174,9 +189,13 @@ public unsafe class SdlApplication
                     _frames = 0;
                     _stopwatch.Restart();
                     _sdl.SetWindowTitle(_window, "FPS: " + _fps);
+
+                    // Raise status updated event
+                    StatusUpdated?.Invoke(this, new StatusUpdatedEventArgs(GetStatus()));
                 }
 
                 _frames++;
+                _totalFrames++;
 
                 _scene.Render(_impellerContext, drawListBuilder, new SceneParameters()
                 {

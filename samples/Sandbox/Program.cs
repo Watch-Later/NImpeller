@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
+using System.Threading;
+using System.Threading.Tasks;
 using CommandLine;
 using Microsoft.Extensions.Logging;
+using Spectre.Console;
 using Sandbox;
 using Sandbox.Scenes;
 
@@ -78,7 +82,7 @@ static class Program
             var metalLogger = _loggerFactory!.CreateLogger<MetalApplication>();
             var metalApp = new MetalApplication(metalLogger);
             metalApp.SetScene(scene);
-            metalApp.Run(options.Width, options.Height);
+            RunWithConsoleDisplay(metalApp);
             return;
         }
 
@@ -89,8 +93,62 @@ static class Program
         if (sdlApp.Initialize(options.Width, options.Height))
         {
             sdlApp.SetScene(scene);
+            RunWithConsoleDisplay(sdlApp);
+        }
+    }
+
+    static void RunWithConsoleDisplay(IApplicationStatus app)
+    {
+        var currentStatus = app.GetStatus();
+        var isRunning = true;
+
+        // Subscribe to status updates
+        app.StatusUpdated += (sender, e) =>
+        {
+            currentStatus = e.Status;
+        };
+
+        // Start console display in background thread
+        var consoleTask = Task.Run(() =>
+        {
+            AnsiConsole.Live(CreateStatusTable(currentStatus))
+                .Start(ctx =>
+                {
+                    while (isRunning)
+                    {
+                        ctx.UpdateTarget(CreateStatusTable(currentStatus));
+                        Thread.Sleep(100); // Update display every 100ms
+                    }
+                });
+        });
+
+        if (app is SdlApplication sdlApp)
+        {
             sdlApp.Run();
         }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) && app is MetalApplication metalApp)
+        {
+            metalApp.Run();
+        }
+
+        isRunning = false;
+
+        consoleTask.Wait(TimeSpan.FromSeconds(1));
+    }
+
+    static Table CreateStatusTable(ApplicationStatus status)
+    {
+        var table = new Table()
+            .Border(TableBorder.Rounded)
+            .BorderColor(Color.Blue)
+            .AddColumn(new TableColumn("[bold]Metric[/]").Centered())
+            .AddColumn(new TableColumn("[bold]Value[/]").Centered());
+
+        table.AddRow("[cyan]FPS[/]", $"[green]{status.CurrentFps}[/]");
+        table.AddRow("[cyan]Total Frames[/]", $"[yellow]{status.TotalFrames:N0}[/]");
+        table.AddRow("[cyan]Runtime[/]", $"[magenta]{status.RunTime:hh\\:mm\\:ss}[/]");
+
+        return table;
     }
 }
 

@@ -11,11 +11,15 @@ public class ImpellerMetalRenderer : Sandbox.MacInterop.IRenderer
 {
     private readonly ImpellerContext _context;
     private readonly Stopwatch _stopwatch;
+    private static readonly Stopwatch _totalRunTime = Stopwatch.StartNew();
     private int _frames;
+    private static long _totalFrames;
     private int _fps;
+    private static int _currentFps;
 
     public static IScene? CurrentScene { get; set; }
     public static NSWindow? CurrentWindow { get; set; }
+    public static MetalApplication? CurrentApplication { get; set; }
 
     public ImpellerMetalRenderer(MTLDevice device)
     {
@@ -23,6 +27,16 @@ public class ImpellerMetalRenderer : Sandbox.MacInterop.IRenderer
         _stopwatch = Stopwatch.StartNew();
         _frames = 0;
         _fps = 0;
+    }
+
+    public static ApplicationStatus GetStatus()
+    {
+        return new ApplicationStatus
+        {
+            CurrentFps = _currentFps,
+            TotalFrames = _totalFrames,
+            RunTime = _totalRunTime.Elapsed
+        };
     }
 
     public static Sandbox.MacInterop.IRenderer Init(MTLDevice device)
@@ -42,15 +56,20 @@ public class ImpellerMetalRenderer : Sandbox.MacInterop.IRenderer
         if (_stopwatch.Elapsed.TotalSeconds > 1)
         {
             _fps = (int)(_frames / _stopwatch.Elapsed.TotalSeconds);
+            _currentFps = _fps;
             _frames = 0;
             _stopwatch.Restart();
             if (CurrentWindow != null)
             {
                 CurrentWindow.Title = $"NImpeller on Metal - FPS: {_fps}";
             }
+
+            // Raise status updated event
+            CurrentApplication?.OnStatusUpdated(GetStatus());
         }
 
         _frames++;
+        _totalFrames++;
 
         var width = (int)drawable.Texture.Width;
         var height = (int)drawable.Texture.Height;
