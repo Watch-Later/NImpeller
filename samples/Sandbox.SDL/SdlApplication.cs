@@ -11,7 +11,7 @@ using Silk.NET.Core.Native;
 
 namespace Sandbox;
 
-public unsafe class SdlApplication : IApplicationStatus
+public unsafe class SdlApplication : IApplication
 {
     public enum GraphicsApi
     {

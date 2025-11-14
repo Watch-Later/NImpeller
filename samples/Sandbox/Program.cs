@@ -80,7 +80,7 @@ static class Program
             }
 
             var metalLogger = _loggerFactory!.CreateLogger<MetalApplication>();
-            var metalApp = new MetalApplication(metalLogger);
+            var metalApp = new MetalApplication(options.Width, options.Height, "NImpeller on Metal", metalLogger);
             metalApp.SetScene(scene);
             RunWithConsoleDisplay(metalApp);
             return;
@@ -97,7 +97,7 @@ static class Program
         }
     }
 
-    static void RunWithConsoleDisplay(IApplicationStatus app)
+    static void RunWithConsoleDisplay(IApplication app)
     {
         var currentStatus = app.GetStatus();
         var isRunning = true;
@@ -122,14 +122,7 @@ static class Program
                 });
         });
 
-        if (app is SdlApplication sdlApp)
-        {
-            sdlApp.Run();
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) && app is MetalApplication metalApp)
-        {
-            metalApp.Run();
-        }
+        app.Run();
 
         isRunning = false;
 

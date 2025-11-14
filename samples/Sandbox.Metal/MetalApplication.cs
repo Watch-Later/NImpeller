@@ -9,7 +9,7 @@ using SharpMetal.ObjectiveCCore;
 namespace Sandbox;
 
 [SupportedOSPlatform("macos")]
-public class MetalApplication : IApplicationStatus
+public class MetalApplication : IApplication
 {
     public event EventHandler<StatusUpdatedEventArgs>? StatusUpdated;
 
@@ -17,8 +17,16 @@ public class MetalApplication : IApplicationStatus
     private IScene _scene = null!;
     private readonly ILogger<MetalApplication> _logger;
 
-    public MetalApplication(ILogger<MetalApplication>? logger = null)
+    private int _width;
+    
+    private int _height;
+
+    private string _title;
+    public MetalApplication(int width, int height, string title, ILogger<MetalApplication>? logger = null)
     {
+        _width = width;
+        _height = height;
+        _title = title;
         _logger = logger ?? NullLogger<MetalApplication>.Instance;
     }
 
@@ -37,7 +45,7 @@ public class MetalApplication : IApplicationStatus
         _scene = scene;
     }
 
-    public void Run(int width = 800, int height = 600, string title = "NImpeller on Metal")
+    public void Run()
     {
         // Initialize Objective-C runtime, via SharpMetal
         ObjectiveC.LinkMetal();
@@ -56,7 +64,7 @@ public class MetalApplication : IApplicationStatus
             if (windowCreated) return;
             windowCreated = true;
 
-            var rect = new NSRect(100, 100, width, height);
+            var rect = new NSRect(100, 100, _width, _height);
             _window = new NSWindow(
                 rect,
                 (ulong)(NSStyleMask.Titled |
@@ -79,7 +87,7 @@ public class MetalApplication : IApplicationStatus
             ImpellerMetalRenderer.CurrentApplication = this;
 
             _window.SetContentView(mtkView);
-            _window.Title = title;
+            _window.Title = _title;
             _window.MakeKeyAndOrderFront();
 
             var app = new NSApplication(notification.Object);
